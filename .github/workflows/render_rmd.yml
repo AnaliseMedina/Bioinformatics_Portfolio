@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main  # You can change this to your branch name
-  pull_request:
-    branches:
-      - main  # You can change this to your branch name
 
 jobs:
   render:
