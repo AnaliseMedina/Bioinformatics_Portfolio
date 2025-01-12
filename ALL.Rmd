@@ -1,13 +1,9 @@
 ---
-title: "Carfilzomib Resistance in Multiple Myloma Models"
+title: "ALL Dataset Analysis"
 author: "Analise Medina"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-
-## Introduction
-
-Adult T-cell acute lymphocytic leukemia (ALL)
 
 ```{r message=FALSE, warning=FALSE}
 
