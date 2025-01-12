@@ -1,0 +1,41 @@
+name: Render R Markdown to HTML
+
+on:
+  push:
+    branches:
+      - main  # You can change this to your branch name
+  pull_request:
+    branches:
+      - main  # You can change this to your branch name
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Set up R environment
+    - name: Set up R
+      uses: r-lib/actions/setup-r@v1
+
+    # Install required R packages
+    - name: Install dependencies
+      run: |
+        install.packages(c('rmarkdown'))
+
+    # Render the Rmd file to HTML
+    - name: Render R Markdown to HTML
+      run: |
+        rmarkdown::render('All.Rmd', output_format = 'html_document')
+
+    # Commit and push the rendered HTML file (optional)
+    - name: Commit rendered output
+      run: |
+        git config --global user.name 'AnaliseMedina'
+        git config --global user.email 'analise.n.medina@gmail.com'
+        git add ALL_analysis.html
+        git commit -m "Add rendered HTML file"
+        git push
