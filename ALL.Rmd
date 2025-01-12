@@ -1,0 +1,149 @@
+---
+title: "Carfilzomib Resistance in Multiple Myloma Models"
+author: "Analise Medina"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+
+Adult T-cell acute lymphocytic leukemia (ALL)
+
+```{r message=FALSE, warning=FALSE}
+
+library(ALL)
+library(ggplot2)
+library(pheatmap)
+library(reshape2)
+library(plotly)
+library(ggdendro)
+library(DESeq2)
+library(cluster)
+library(EnhancedVolcano)
+library(dplyr)
+
+#Importing data set
+data(ALL)
+ex <- exprs(ALL)
+phen_data <- pData(ALL)
+
+types <- gsub("\\d+", "", phen_data$BT)
+
+types <- data.frame(Sample = phen_data$cod,  Subtype = factor(types))
+
+```
+
+## Quality Control
+
+```{r}
+anyNA(ex)
+
+filtered_samples <- ex[, colSums(ex) > 100]; dim(filtered_samples)
+
+filtered_genes <- ex[rowSums(ex > 1) >= 2, ]; dim(filtered_genes)
+
+print(dim(ex))
+
+#The fact that all three of these have the same dimensions indicates to me that there are no empty readings within the dataset. 
+
+rm(filtered_samples)
+rm(filtered_genes)
+
+#Removing these temporary variables to save memory 
+
+```
+
+## Differentially Expressed Genes, Normalization, and Filtering
+
+```{r message=FALSE, warning=FALSE}
+
+ex <- round(ex)
+
+dds <- DESeqDataSetFromMatrix(
+  countData = ex,
+  colData = types,
+  design = ~ Subtype
+)
+
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+
+dds$Subtype <- relevel(dds$Subtype, ref = "B")
+
+dds <- DESeq(dds)
+
+
+res_0.01 <- results(dds, alpha = 0.01)
+summary(res_0.01)
+
+plotMA(res_0.01)
+
+normalized <- counts(dds, normalized = TRUE) 
+
+#This was done to see if there were any differentially  expressed genes between the B and T subtypes 
+
+res <- lfcShrink(dds, contrast = c("Subtype", "B", "T"), res = res_0.01, type="normal")
+
+#Visualizing the differently expressed genes. 
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = "log2FoldChange",
+                y = "pvalue")
+
+#Separating these genes into their own dataframes. 
+sig_genes <- res[which(res$padj < 0.05), ]
+
+sig_gene_vals <- ex[rownames(sig_genes), ]
+
+hist(res@listData[["padj"]])
+hist(res@listData[["pvalue"]])
+
+
+```
+
+
+## Cluster Analysis 
+
+```{r}
+#Hierarchial Clustering 
+
+dist_matrix <- dist(sig_gene_vals, method = "euclidean")
+clusters <- hclust(dist_matrix, method = "average")
+
+plot(clusters)
+
+sig_gene_vals <- as.matrix(sig_gene_vals)
+heatmap(sig_gene_vals)
+
+#K-Means Clustering 
+scaled_data <- scale(sig_genes)
+
+wss <- (nrow(scaled_data) - 1) * sum(apply(scaled_data, 2, var))
+
+for (i in 2:15) {
+    wss[i] <- sum(kmeans(scaled_data, centers = i)$withinss)
+}
+
+# Plot the WSS for cluster numbers 2 to 15
+plot(2:15, wss[2:15], type = "b", xlab = "Number of Clusters", ylab = "Within Groups Sum of Squares")
+
+#Based on the produced elbow plot, 5 was determined to be the correct amount of clusters.
+
+fit <- kmeans(scaled_data, 5) 
+
+scaled_data <- data.frame(scaled_data, fit$cluster)
+genes_cluster <- rownames(sig_genes)[fit$cluster == 1]
+
+clusplot(scaled_data, fit$cluster, color=TRUE, shade=TRUE,
+   labels=0, lines=0)
+
+```
+
+
+## Reference
+
+Chiaretti, S., Li, X., Gentleman, R., Vitale, A., Vignetti, M., Mandelli, F., Ritz, J., & Foa, R. (2004). Gene expression profile of adult T-cell acute lymphocytic leukemia identifies distinct subsets of patients with different response to therapy and survival. Blood, 103(7), 2771–2778. https://doi.org/10.1182/blood-2003-09-3243
+
+
+
+
